@@ -1,0 +1,97 @@
+---
+title: "Final Project - Practical Machine Learning"
+author: "iKangas"
+date: "Sunday, January 25, 2015"
+output: html_document
+---
+
+### Introduction
+
+The goal of this project is to predict the manner in which the experiment subjects did the exercise. This is the "classe" variable in our data set. The possible outcomes are 'A', 'B', 'C', 'D' and 'E'. We are using random forests techniques to solve this multi-classification problem.
+
+### Data Preprocessing
+
+We import our training set and our testing set.
+
+```{r,results='hide'}
+traindata <- read.csv('pml-training.csv',na.strings=c("NA", "#DIV/0!"))
+#head(traindata)
+testdata <- read.csv('pml-testing.csv',na.strings=c("NA", "#DIV/0!"))
+#head(testdata)
+```
+
+We use the caret and the randomForest library in our analysis.
+
+```{r,warning=FALSE,results='hide',message=FALSE}
+library(caret)
+library(randomForest)
+```
+
+We leave aside the testing set and we partition our training set in order to cross validate our results.
+
+```{r}
+inTrain <- createDataPartition(y=traindata$classe, p=0.8, list=FALSE)
+training <- traindata[inTrain,]
+validating <- traindata[-inTrain,]
+```
+    
+Our training data set is very dirty. An efficient way to handle it is to remove all dirty columns, i.e. columns that include NA's. In addition to that we observe that the first 7 columns include unecessary information, such as timestamp and id, so we remove them as well.
+
+```{r}
+remov_col <- colSums(is.na(training)) == 0
+training <- training[, remov_col] 
+training <- training[,-c(1,2,3,4,5,6,7)]
+```
+
+We are ready now to perform our analysis.
+
+### Random Forests
+
+The last column, i.e. 53, is the column that contains the classe variable. We train our model on our training set.
+
+```{r}
+modelFit <- randomForest(training[,53]~.,data=training[,-53], method ='class')
+```
+
+### Cross Validation
+
+We apply our model on the validation set. We should be careful to perform the same preprocessing techniques followed in our training set.
+
+```{r}
+validating <- validating[, remov_col] 
+validating <- validating[,-c(1,2,3,4,5,6,7)]
+crossval_results <- predict(modelFit,validating[,-53],type='class')
+```
+
+We expect to have a small out of sample error, i.e. less than 1%, because of the satisfying amount of observations and variables we have in our trainng set (horizontally and vertically big data set). We expect that our model is well trained.
+
+We cross validate our modelt in order to evaluate the performance of our model.
+
+```{r}
+table(crossval_results,validating[,53])
+```
+
+The results are very accurate. We easily observe that only 17 observations (out of diagonal ) are misclassified out of 3923 samples! 
+
+```{r}
+OutOfSampleError <- 17/3923
+OutOfSampleError
+```
+
+This refers to an out of sample error as small as 0.4% which corresponds to our expectations.
+
+### Prediction
+
+Similarly we perform the prediction on the testing set. Once again, We are careful to perform the same preprocessing techniques followed in our training set.
+
+```{r}
+testdata <- testdata[, remov_col] 
+testdata <- testdata[,-c(1,2,3,4,5,6,7)]
+final_results <- predict(modelFit,testdata[,-53],type='class')
+```
+
+The final results are:
+
+```{r,echo=FALSE}
+final_results
+```
